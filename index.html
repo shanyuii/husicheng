@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>排队管理系统</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #e9ecef; /* 柔和的灰色背景 */
+        }
+        .login-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .logout-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .login-form {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="text"], input[type="password"] {
+            width: calc(100% - 22px);
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+        .queue-container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .current-processing {
+            background-color: #f0f8ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .queue-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .queue-item {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 3px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .completed-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .completed-item {
+            background-color: #d4edda;
+            padding: 10px;
+            border-radius: 3px;
+            margin-bottom: 5px;
+        }
+        .rush-label {
+            color: red;
+            font-weight: bold;
+        }
+        .admin-window {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1001;
+            width: 400px;
+        }
+        .admin-window h2 {
+            margin-top: 0;
+        }
+        .select-rush-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1002;
+        }
+        .select-rush-form {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1003;
+        }
+        .select-rush-form ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .select-rush-form li {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 3px;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .queue-container {
+                max-width: 90%;
+                margin: 20px auto;
+            }
+            .login-button, .logout-button {
+                font-size: 14px;
+                padding: 8px 16px;
+            }
+            .form-group input[type="text"],
+            .form-group input[type="password"] {
+                width: calc(100% - 18px);
+                padding: 6px;
+            }
+            .button {
+                padding: 8px 16px;
+            }
+        }
+
+        /* Background color for current processing */
+        .current-processing.current-person-background {
+            background-color: #cce5ff; /* Light blue background */
+        }
+    </style>
+</head>
+<body>
+    <button class="login-button" id="loginButton">登录</button>
+
+    <!-- Login Form -->
+    <div class="overlay" id="overlay"></div>
+    <div class="login-form" id="loginForm">
+        <div class="form-group">
+            <label for="username">用户名:</label>
+            <input type="text" id="username" required>
+        </div>
+        <div class="form-group">
+            <label for="password">密码:</label>
+            <input type="password" id="password" required>
+        </div>
+        <button onclick="handleLogin()">登录</button>
+    </div>
+
+    <!-- Admin Window -->
+    <div class="admin-window" id="adminWindow">
+        <h2>管理员面板</h2>
+        <button class="logout-button" onclick="handleLogout()">退出</button>
+        <div class="form-group">
+            <label for="personName">姓名:</label>
+            <input type="text" id="personName" required>
+        </div>
+        <button onclick="addQueueItem()">添加队列信息</button>
+        <button onclick="markCompleted()">处理完成</button>
+        <button onclick="showSelectRush()">加急</button>
+        
+        <div class="queue-container">
+            <div class="current-processing" id="adminCurrentPersonContainer">
+                <h3 id="adminCurrentProcessingTitle">当前处理中:</h3>
+                <p id="adminCurrentPerson">无人</p>
+            </div>
+            <div>
+                <h3>等待队列:</h3>
+                <ul class="queue-list" id="adminQueueList"></ul>
+            </div>
+            <div>
+                <h3>已完成:</h3>
+                <ul class="completed-list" id="adminCompletedList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Select Rush Overlay -->
+    <div class="select-rush-overlay" id="selectRushOverlay"></div>
+    <div class="select-rush-form" id="selectRushForm">
+        <h3>选择要加急的队列项:</h3>
+        <ul id="rushOptions"></ul>
+        <button onclick="hideSelectRush()">取消</button>
+    </div>
+
+    <!-- Public View -->
+    <div class="public-view" id="publicView">
+        <div class="queue-container">
+            <div class="current-processing" id="publicCurrentPersonContainer">
+                <h3 id="publicCurrentProcessingTitle">当前处理中:</h3>
+                <p id="publicCurrentPerson">无人</p>
+            </div>
+            <div>
+                <h3>等待队列:</h3>
+                <ul class="queue-list" id="publicQueueList"></ul>
+            </div>
+            <div>
+                <h3>已完成:</h3>
+                <ul class="completed-list" id="publicCompletedList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const loginButton = document.getElementById('loginButton');
+        const overlay = document.getElementById('overlay');
+        const loginForm = document.getElementById('loginForm');
+        const adminWindow = document.getElementById('adminWindow');
+        const publicView = document.getElementById('publicView');
+
+        const adminCurrentPersonContainer = document.getElementById('adminCurrentPersonContainer');
+        const adminCurrentProcessingTitle = document.getElementById('adminCurrentProcessingTitle');
+        const adminCurrentPerson = document.getElementById('adminCurrentPerson');
+        const adminQueueList = document.getElementById('adminQueueList');
+        const adminCompletedList = document.getElementById('adminCompletedList');
+
+        const publicCurrentPersonContainer = document.getElementById('publicCurrentPersonContainer');
+        const publicCurrentProcessingTitle = document.getElementById('publicCurrentProcessingTitle');
+        const publicCurrentPerson = document.getElementById('publicCurrentPerson');
+        const publicQueueList = document.getElementById('publicQueueList');
+        const publicCompletedList = document.getElementById('publicCompletedList');
+
+        const selectRushOverlay = document.getElementById('selectRushOverlay');
+        const selectRushForm = document.getElementById('selectRushForm');
+        const rushOptions = document.getElementById('rushOptions');
+
+        let isLoggedIn = false;
+
+        // 初始化队列数据
+        let queueData = [];
+        let completedData = [];
+
+        let currentPerson = { name: '无人', isRushed: false };
+
+        loginButton.onclick = () => {
+            overlay.style.display = 'block';
+            loginForm.style.display = 'block';
+        };
+
+        function handleLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            // 假设正确的用户名和密码是 "admin" 和 "password"
+            if (username === 'admin' && password === 'password') {
+                isLoggedIn = true;
+                overlay.style.display = 'none';
+                loginForm.style.display = 'none';
+                adminWindow.style.display = 'block';
+                publicView.style.display = 'none';
+                loginButton.style.display = 'none';
+
+                updateAdminWindow();
+            } else {
+                alert('用户名或密码错误');
+            }
+        }
+
+        function handleLogout() {
+            isLoggedIn = false;
+            adminWindow.style.display = 'none';
+            publicView.style.display = 'block';
+            loginButton.style.display = 'block';
+
+            updatePublicView();
+        }
+
+        function addQueueItem() {
+            if (!isLoggedIn) {
+                alert('请先登录');
+                return;
+            }
+
+            const personName = document.getElementById('personName').value;
+            if (!personName) {
+                alert('请输入姓名');
+                return;
+            }
+
+            if (currentPerson.name === '无人') {
+                setCurrentPerson(personName, false);
+            } else {
+                // 创建新的队列项
+                const item = { name: personName, isRushed: false };
+                queueData.push(item);
+                addItemToQueue(item, true);
+            }
+
+            document.getElementById('personName').value = ''; // 清空输入框
+
+            updateAdminWindow();
+            updatePublicView();
+        }
+
+        function addToCurrentProcessing(name, item, isRushed) {
+            if (currentPerson.name !== '无人') {
+                moveCurrentToQueue(false); // 不标记为加急
+            }
+            setCurrentPerson(name, isRushed);
+
+            queueData = queueData.filter(q => q.name !== name);
+
+            updateAdminWindow();
+            updatePublicView();
+        }
+
+        function markCompleted() {
+            if (!isLoggedIn) {
+                alert('请先登录');
+                return;
+            }
+
+            const currentName = getCurrentPersonName();
+            if (currentName === '无人') {
+                alert('没有正在处理的人');
+                return;
+            }
+
+            // 将当前处理的人移动到已完成列表
+            completedData.push({ name: currentName });
+            removeCurrentPerson();
+
+            // 移动第一个排队的人到当前处理中
+            if (queueData.length > 0) {
+                const nextItem = queueData.shift();
+                setCurrentPerson(nextItem.name, nextItem.isRushed);
+            } else {
+                setCurrentPerson('无人', false);
+            }
+
+            updateAdminWindow();
+            updatePublicView();
+        }
+
+        function showSelectRush() {
+            if (!isLoggedIn) {
+                alert('请先登录');
+                return;
+            }
+
+            clearRushOptions();
+            queueData.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = item.name;
+                li.onclick = () => {
+                    makeRush(item.name);
+                    hideSelectRush();
+                };
+                rushOptions.appendChild(li);
+            });
+
+            selectRushOverlay.style.display = 'block';
+            selectRushForm.style.display = 'block';
+        }
+
+        function hideSelectRush() {
+            selectRushOverlay.style.display = 'none';
+            selectRushForm.style.display = 'none';
+            clearRushOptions();
+        }
+
+        function clearRushOptions() {
+            while (rushOptions.firstChild) {
+                rushOptions.removeChild(rushOptions.firstChild);
+            }
+        }
+
+        function moveCurrentToQueue(isRushed) {
+            const currentName = getCurrentPersonName();
+            if (currentName === '无人') return;
+
+            queueData.unshift({ name: currentName, isRushed: isRushed });
+            removeCurrentPerson();
+
+            updateAdminWindow();
+            updatePublicView();
+        }
+
+        function setCurrentPerson(name, isRushed) {
+            console.log(`Setting current person to ${name} with isRushed=${isRushed}`); // Debug log
+            setPersonText(adminCurrentPerson, name, isRushed);
+            setPersonText(publicCurrentPerson, name, isRushed);
+
+            // Update title based on whether it's rushed or not
+            const titleText = isRushed ? '当前处理中(加急):' : '当前处理中:';
+            adminCurrentProcessingTitle.textContent = titleText;
+            publicCurrentProcessingTitle.textContent = titleText;
+
+            // Add or remove background color based on whether there's a current person
+            if (name === '无人') {
+                adminCurrentPersonContainer.classList.remove('current-person-background');
+                publicCurrentPersonContainer.classList.remove('current-person-background');
+            } else {
+                adminCurrentPersonContainer.classList.add('current-person-background');
+                publicCurrentPersonContainer.classList.add('current-person-background');
+            }
+
+            // 更新全局变量
+            currentPerson.name = name;
+            currentPerson.isRushed = isRushed;
+        }
+
+        function setPersonText(element, name, isRushed) {
+            element.innerHTML = '';
+
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = name;
+
+            element.appendChild(nameSpan);
+
+            if (isRushed) {
+                const rushLabel = document.createElement('span');
+                rushLabel.className = 'rush-label';
+                rushLabel.textContent = ' 加急';
+                element.appendChild(rushLabel);
+            }
+        }
+
+        function removeCurrentPerson() {
+            adminCurrentPerson.innerHTML = '<span>无人</span>';
+            publicCurrentPerson.innerHTML = '<span>无人</span>';
+
+            adminCurrentProcessingTitle.textContent = '当前处理中:';
+            publicCurrentProcessingTitle.textContent = '当前处理中:';
+
+            adminCurrentPersonContainer.classList.remove('current-person-background');
+            publicCurrentPersonContainer.classList.remove('current-person-background');
+
+            // 更新全局变量
+            currentPerson.name = '无人';
+            currentPerson.isRushed = false;
+        }
+
+        function getCurrentPersonName() {
+            const spanElement = adminCurrentPerson.querySelector('span:first-child');
+            return spanElement ? spanElement.textContent : '无人'; // 获取名字部分
+        }
+
+        function addItemToQueue(item, isAdmin) {
+            const li = document.createElement('li');
+            li.className = 'queue-item';
+            li.dataset.name = item.name; // 存储原始名字
+
+            // 添加加急按钮（仅在管理员界面显示）
+            if (isAdmin) {
+                const rushButton = document.createElement('button');
+                rushButton.textContent = '加急';
+                rushButton.onclick = () => makeRush(item.name);
+                li.appendChild(rushButton);
+            }
+
+            setQueueListItemText(li, item.name, item.isRushed);
+            adminQueueList.appendChild(li);
+
+            // 同步公共视图
+            const publicLi = document.createElement('li');
+            publicLi.className = 'queue-item';
+            publicLi.dataset.name = item.name; // 存储原始名字
+            setQueueListItemText(publicLi, item.name, item.isRushed);
+            publicQueueList.appendChild(publicLi);
+        }
+
+        function setQueueListItemText(li, name, isRushed) {
+            li.innerHTML = '';
+            li.textContent = name;
+            if (isRushed) {
+                const rushLabel = document.createElement('span');
+                rushLabel.className = 'rush-label';
+                rushLabel.textContent = ' 加急';
+                li.appendChild(rushLabel);
+            }
+        }
+
+        function updateAdminWindow() {
+            clearLists(adminQueueList, adminCompletedList);
+
+            queueData.forEach(item => addItemToQueue(item, true));
+
+            completedData.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'completed-item';
+                li.textContent = item.name;
+                adminCompletedList.appendChild(li);
+            });
+
+            setCurrentPerson(currentPerson.name, currentPerson.isRushed);
+        }
+
+        function updatePublicView() {
+            clearLists(publicQueueList, publicCompletedList);
+
+            queueData.forEach(item => addItemToQueueInPublic(item));
+
+            completedData.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'completed-item';
+                li.textContent = item.name;
+                publicCompletedList.appendChild(li);
+            });
+
+            setCurrentPerson(currentPerson.name, currentPerson.isRushed);
+        }
+
+        function addItemToQueueInPublic(item) {
+            const li = document.createElement('li');
+            li.className = 'queue-item';
+            li.dataset.name = item.name; // 存储原始名字
+
+            setQueueListItemText(li, item.name, item.isRushed);
+            publicQueueList.appendChild(li);
+        }
+
+        function clearLists(...lists) {
+            lists.forEach(list => {
+                while (list.firstChild) {
+                    list.removeChild(list.firstChild);
+                }
+            });
+        }
+
+        function makeRush(name) {
+            console.log(`Making ${name} rushed`); // Debug log
+            // 找到要加急的任务并将其移除
+            const rushedItemIndex = queueData.findIndex(item => item.name === name);
+            if (rushedItemIndex === -1) return;
+
+            const rushedItem = queueData[rushedItemIndex];
+            queueData.splice(rushedItemIndex, 1);
+
+            // 将当前处理的任务移回队列
+            moveCurrentToQueue(false);
+
+            // 设置新任务为当前处理任务并标记为加急
+            setCurrentPerson(name, true);
+
+            // 更新队列数据
+            queueData = queueData.map(item => ({ ...item, isRushed: false }));
+
+            updateAdminWindow();
+            updatePublicView();
+        }
+    </script>
+</body>
+</html>
